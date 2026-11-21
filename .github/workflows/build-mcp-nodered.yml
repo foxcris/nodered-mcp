@@ -59,23 +59,25 @@ jobs:
       - name: Trivy image scan (JSON-Report)
         continue-on-error: true
         run: |
-          trivy image --severity CRITICAL,HIGH --ignore-unfixed \
+          trivy image --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
             --format json --output trivy-image-report.json nodered-mcp:ci || true
 
       - name: Trivy image scan (Annotations)
         continue-on-error: true
         run: |
-          trivy image --severity CRITICAL,HIGH --ignore-unfixed \
+          trivy image --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
             --format template --template "@contrib/github.tmpl" nodered-mcp:ci || true
 
       - name: Trivy image scan (CRITICAL/HIGH fail)
         run: |
-          trivy image --severity CRITICAL,HIGH --ignore-unfixed \
+          trivy --version
+          echo "--- .trivyignore ---"; cat .trivyignore
+          trivy image --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
             --exit-code 1 --format table nodered-mcp:ci
 
       - name: Trivy fs scan (pip requirements)
         run: |
-          trivy fs --scan-type vuln --severity CRITICAL,HIGH --ignore-unfixed \
+          trivy fs --scan-type vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
             --exit-code 1 --format table .
 
       - name: Upload trivy report (artefakt)
@@ -94,7 +96,7 @@ jobs:
           git checkout -B ci/trivy-report
           [ -f trivy-image-report.json ] && git add trivy-image-report.json || echo '{}' > trivy-image-report.json && git add trivy-image-report.json
           git commit -m "trivy report $(date -u +%FT%TZ)" || true
-          git push origin ci/trivy-report
+          git push --force origin ci/trivy-report
 
       - name: Push nach ghcr.io (latest + sha)
         run: |
