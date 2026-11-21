@@ -6,9 +6,10 @@ name: build-image
 # Im ansible-setup-Repo aktualisisert watchtower auf home2 den Container
 # automatisch per Digest (label com.centurylinklabs.watchtower.enable).
 #
-# Bei einem Trivy-Fail wird der JSON-Report als Workflow-Artefakt hochgeladen
-# (Download: Run-Seite -> Artifacts -> trivy-report), damit die betroffenen
-# CVEs ohne Log-Zugriff analysierbar sind.
+# Bei einem Trivy-Fail wird der JSON-Report zusaetzlich auf den Branch
+# ci/trivy-report committet (lesbar via raw.githubusercontent.com) und als
+# Workflow-Artefakt hochgeladen. Ausserdem werden die Findings als
+# GitHub-Annotations ausgegeben (sichtbar auf der Run-Seite).
 
 on:
   schedule:
@@ -23,7 +24,7 @@ on:
       - ".trivyignore"
 
 permissions:
-  contents: read
+  contents: write   # write nur fuer den trivy-report-Branch bei Fail
   packages: write
 
 jobs:
@@ -59,7 +60,13 @@ jobs:
         continue-on-error: true
         run: |
           trivy image --severity CRITICAL,HIGH --ignore-unfixed \
-            --format json --output trivy-image-report.json nodered-mcp:ci
+            --format json --output trivy-image-report.json nodered-mcp:ci || true
+
+      - name: Trivy image scan (Annotations)
+        continue-on-error: true
+        run: |
+          trivy image --severity CRITICAL,HIGH --ignore-unfixed \
+            --format template --template "@contrib/github.tmpl" nodered-mcp:ci || true
 
       - name: Trivy image scan (CRITICAL/HIGH fail)
         run: |
@@ -78,6 +85,16 @@ jobs:
           name: trivy-report
           path: trivy-image-report.json
           retention-days: 14
+
+      - name: Trivy-Report auf Branch ci/trivy-report pushen (bei Fail)
+        if: failure()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B ci/trivy-report
+          [ -f trivy-image-report.json ] && git add trivy-image-report.json || echo '{}' > trivy-image-report.json && git add trivy-image-report.json
+          git commit -m "trivy report $(date -u +%FT%TZ)" || true
+          git push origin ci/trivy-report
 
       - name: Push nach ghcr.io (latest + sha)
         run: |
