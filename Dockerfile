@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # Sicherheitsupdates des Base-Images einspielen (Trivy-Gate im CI failt sonst
 # auf CRITICAL/HIGH in den Debian-Paketen des slim-Images)
