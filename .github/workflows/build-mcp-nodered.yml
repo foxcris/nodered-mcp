@@ -5,6 +5,10 @@ name: build-image
 # Laufend woechentlich (Mo 04:00 UTC) + bei Push auf Dockerfile/requirements.
 # Im ansible-setup-Repo aktualisisert watchtower auf home2 den Container
 # automatisch per Digest (label com.centurylinklabs.watchtower.enable).
+#
+# Bei einem Trivy-Fail wird der JSON-Report als Workflow-Artefakt hochgeladen
+# (Download: Run-Seite -> Artifacts -> trivy-report), damit die betroffenen
+# CVEs ohne Log-Zugriff analysierbar sind.
 
 on:
   schedule:
@@ -16,6 +20,7 @@ on:
       - "Dockerfile"
       - "requirements.txt"
       - ".github/workflows/build-mcp-nodered.yml"
+      - ".trivyignore"
 
 permissions:
   contents: read
@@ -26,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Docker buildx setup
         uses: docker/setup-buildx-action@v3
@@ -47,22 +52,32 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Install trivy (gepinnt)
+        uses: aquasecurity/setup-trivy@v0.3.1
+
+      - name: Trivy image scan (JSON-Report)
+        continue-on-error: true
+        run: |
+          trivy image --severity CRITICAL,HIGH --ignore-unfixed \
+            --format json --output trivy-image-report.json nodered-mcp:ci
+
       - name: Trivy image scan (CRITICAL/HIGH fail)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: nodered-mcp:ci
-          severity: CRITICAL,HIGH
-          exit-code: "1"
-          ignore-unfixed: true
+        run: |
+          trivy image --severity CRITICAL,HIGH --ignore-unfixed \
+            --exit-code 1 --format table nodered-mcp:ci
 
       - name: Trivy fs scan (pip requirements)
-        uses: aquasecurity/trivy-action@master
+        run: |
+          trivy fs --scan-type vuln --severity CRITICAL,HIGH --ignore-unfixed \
+            --exit-code 1 --format table .
+
+      - name: Upload trivy report (artefakt)
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          scan-type: fs
-          scan-ref: .
-          severity: CRITICAL,HIGH
-          exit-code: "1"
-          ignore-unfixed: true
+          name: trivy-report
+          path: trivy-image-report.json
+          retention-days: 14
 
       - name: Push nach ghcr.io (latest + sha)
         run: |

@@ -1,4 +1,11 @@
 FROM python:3.12-slim
+
+# Sicherheitsupdates des Base-Images einspielen (Trivy-Gate im CI failt sonst
+# auf CRITICAL/HIGH in den Debian-Paketen des slim-Images)
+RUN apt-get update \
+ && apt-get upgrade -y \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
