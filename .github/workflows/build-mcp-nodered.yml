@@ -82,7 +82,14 @@ jobs:
           trivy image --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
             --exit-code 1 --format table nodered-mcp:ci
 
-      - name: Trivy fs scan (repo)
+      - name: Trivy fs scan (JSON-Report)
+        id: fsreport
+        continue-on-error: true
+        run: |
+          trivy fs --scan-type vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
+            --format json --output trivy-fs-report.json . || true
+
+      - name: Trivy fs scan (repo, CRITICAL/HIGH fail)
         id: fsscan
         run: |
           trivy fs --scan-type vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
@@ -115,6 +122,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B ci/trivy-report
-          git add run-status.json trivy-image-report.json
+          git add run-status.json trivy-image-report.json trivy-fs-report.json 2>/dev/null || git add run-status.json trivy-image-report.json
           git commit -m "run status $(date -u +%FT%TZ)" || true
           git push --force origin ci/trivy-report
