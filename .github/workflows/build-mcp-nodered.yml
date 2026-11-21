@@ -37,7 +37,7 @@ jobs:
 
       - name: Docker buildx setup
         id: buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login ghcr.io
         id: login
