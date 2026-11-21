@@ -1,0 +1,14 @@
+# Trivy-Ignores fuer nodered-mcp (begruendet, siehe README "Security")
+#
+# Beide Eintraege betreffen fastmcp-Features, die nodered-mcp NICHT nutzt
+# (server.py verwendet ausschliesslich `from fastmcp import FastMCP` + 8 Tools;
+# kein OpenAPIProvider, kein OAuthProxy). Fix ist jeweils fastmcp 3.2.0,
+# upstream nodered-mcp 2.0.1 erlaubt nur fastmcp <3 - siehe README.
+#
+# CVE-2026-32871 (CRITICAL, CVSS 10.0): SSRF via path traversal in
+#   fastmcp OpenAPIProvider RequestDirector._build_url (fehlendes URL-Encoding
+#   von Pfadparametern). Nur relevant, wenn ein Server OpenAPI-Specs proxied.
+CVE-2026-32871
+# CVE-2026-27124 / GHSA-rww4-4w9c-7733 (HIGH): Confused Deputy im fastmcp
+#   OAuthProxy (GitHub OAuth consent). Nur relevant mit OAuth-Proxy-Auth.
+CVE-2026-27124
