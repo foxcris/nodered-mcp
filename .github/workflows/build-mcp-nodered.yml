@@ -1,0 +1,72 @@
+name: build-image
+
+# Baut das nodered-mcp-Image (ljmerza/nodered-mcp via PyPI), scannt es mit
+# Trivy (CRITICAL/HIGH = fail) und pusht nach ghcr.io/<repo-owner>/nodered-mcp.
+# Laufend woechentlich (Mo 04:00 UTC) + bei Push auf Dockerfile/requirements.
+# Im ansible-setup-Repo aktualisisert watchtower auf home2 den Container
+# automatisch per Digest (label com.centurylinklabs.watchtower.enable).
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "requirements.txt"
+      - ".github/workflows/build-mcp-nodered.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker buildx setup
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image (lokal im runner, mit gha cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: nodered-mcp:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy image scan (CRITICAL/HIGH fail)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: nodered-mcp:ci
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Trivy fs scan (pip requirements)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Push nach ghcr.io (latest + sha)
+        run: |
+          docker tag nodered-mcp:ci ghcr.io/${{ github.repository_owner }}/nodered-mcp:latest
+          docker tag nodered-mcp:ci ghcr.io/${{ github.repository_owner }}/nodered-mcp:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository_owner }}/nodered-mcp:latest
+          docker push ghcr.io/${{ github.repository_owner }}/nodered-mcp:${{ github.sha }}
