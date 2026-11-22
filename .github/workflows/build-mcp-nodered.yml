@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Checkout
         id: co
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Docker buildx setup
         id: buildx
