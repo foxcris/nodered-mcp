@@ -86,13 +86,13 @@ jobs:
         id: fsreport
         continue-on-error: true
         run: |
-          trivy fs --scan-type vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
+          trivy fs --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
             --format json --output trivy-fs-report.json . || true
 
       - name: Trivy fs scan (repo, CRITICAL/HIGH fail)
         id: fsscan
         run: |
-          trivy fs --scan-type vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
+          trivy fs --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile .trivyignore \
             --exit-code 1 --format table .
 
       - name: Upload trivy report (artefakt)
